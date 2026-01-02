@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>California Housing Price Predictor</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">🏠 California Housing Price Predictor</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Enter Property Details</h2>
+            <form id="predictionForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Median Income (in $10,000s)</label>
+                    <input type="number" step="0.1" name="med_inc" class="w-full p-2 border rounded" value="8.3" required>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">House Age (years)</label>
+                    <input type="number" name="house_age" class="w-full p-2 border rounded" value="41" required>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Average Rooms</label>
+                    <input type="number" step="0.1" name="avg_rooms" class="w-full p-2 border rounded" value="6.9" required>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Average Bedrooms</label>
+                    <input type="number" step="0.1" name="avg_bedrooms" class="w-full p-2 border rounded" value="1.0" required>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Population</label>
+                    <input type="number" name="population" class="w-full p-2 border rounded" value="322" required>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Average Occupancy</label>
+                    <input type="number" step="0.1" name="avg_occupancy" class="w-full p-2 border rounded" value="2.5" required>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Latitude</label>
+                    <input type="number" step="0.0001" name="latitude" class="w-full p-2 border rounded" value="37.8" required>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Longitude</label>
+                    <input type="number" step="0.0001" name="longitude" class="w-full p-2 border rounded" value="-122.2" required>
+                </div>
+                <div class="md:col-span-2">
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition">
+                        Predict House Price
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div id="results" class="hidden bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Prediction Results</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <h3 class="font-medium text-blue-800">Random Forest</h3>
+                    <p class="text-2xl font-bold">$<span id="rf-prediction">-</span></p>
+                </div>
+                <div id="xgboost-result" class="p-4 bg-green-50 rounded-lg hidden">
+                    <h3 class="font-medium text-green-800">XGBoost</h3>
+                    <p class="text-2xl font-bold">$<span id="xgb-prediction">-</span></p>
+                </div>
+            </div>
+            <div id="chart" class="mt-6" style="height: 400px;"></div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Feature Importance</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="font-medium mb-2">Random Forest</h3>
+                    <img src="{{ url_for('static', filename='feature_importance.png') }}" alt="Feature Importance" class="w-full rounded">
+                </div>
+                <div id="xgboost-feature-importance">
+                    <h3 class="font-medium mb-2">XGBoost</h3>
+                    <img src="{{ url_for('static', filename='xgboost_feature_importance.png') }}" alt="XGBoost Feature Importance" class="w-full rounded">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // Update UI with predictions
+                    document.getElementById('rf-prediction').textContent = 
+                        Math.round(result.rf_prediction).toLocaleString();
+                    
+                    if (result.xgb_prediction !== undefined) {
+                        document.getElementById('xgb-prediction').textContent = 
+                            Math.round(result.xgb_prediction).toLocaleString();
+                        document.getElementById('xgboost-result').classList.remove('hidden');
+                        document.getElementById('xgboost-feature-importance').classList.remove('hidden');
+                    }
+                    
+                    // Show results section
+                    document.getElementById('results').classList.remove('hidden');
+                    
+                    // Update chart
+                    updateChart(result.rf_prediction, result.xgb_prediction);
+                } else {
+                    alert('Error: ' + (result.error || 'Unknown error occurred'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while making the prediction.');
+            }
+        });
+        
+        function updateChart(rfValue, xgbValue) {
+            const data = [{
+                type: 'bar',
+                x: ['Random Forest', 'XGBoost'],
+                y: [rfValue, xgbValue || 0],
+                text: [rfValue, xgbValue || 0].map(v => '$' + Math.round(v).toLocaleString()),
+                textposition: 'auto',
+                marker: {
+                    color: ['#3B82F6', '#10B981']
+                }
+            }];
+            
+            const layout = {
+                title: 'Predicted House Price Comparison',
+                yaxis: {
+                    title: 'Predicted Price ($)',
+                    tickformat: '$,.0f'
+                },
+                xaxis: {
+                    title: 'Model'
+                }
+            };
+            
+            Plotly.newPlot('chart', data, layout);
+        }
+    </script>
+</body>
+</html>

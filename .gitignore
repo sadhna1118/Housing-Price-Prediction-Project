@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment variables
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flask
+instance/
+.webassets-cache
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite3
+
+# Models (optional - you may want to include pre-trained models)
+# Uncomment below if models are too large for GitHub
+# models/*.joblib
+
+# Temporary files
+*.tmp
+temp/
+
+# Nested project directories
+Housing-Price-Prediction-Project/
+housing-price-prediction/
